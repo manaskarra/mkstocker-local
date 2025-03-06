@@ -2,7 +2,8 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '',  // Remove localhost:5000 for Vercel deployment
+  // Use the current domain for API calls instead of localhost
+  baseURL: '',  // Empty string means use the current domain
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
