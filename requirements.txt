@@ -8,3 +8,4 @@ python-dotenv==1.0.0
 pymongo==4.3.3
 dnspython==2.3.0
 requests
+setuptools>=65.5.0
