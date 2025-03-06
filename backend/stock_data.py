@@ -3,7 +3,15 @@ import pandas as pd
 import time
 import random
 import os
+import json
 from datetime import datetime, timedelta
+
+# Create cache directory
+CACHE_DIR = os.path.join(os.path.dirname(__file__), 'cache')
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+# Cache expiration time (in seconds)
+CACHE_EXPIRATION = 3600  # 1 hour
 
 # Function to get mock price data for local development
 def get_mock_price(ticker):
@@ -91,6 +99,35 @@ def get_mock_historical_data(ticker, period="1y"):
     
     return data
 
+# Cache functions
+def get_cache_path(ticker, data_type='price'):
+    return os.path.join(CACHE_DIR, f"{ticker}_{data_type}_cache.json")
+
+def get_from_cache(ticker, data_type='price'):
+    cache_path = get_cache_path(ticker, data_type)
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, 'r') as f:
+                cache_data = json.load(f)
+                # Check if cache is still valid
+                if time.time() - cache_data['timestamp'] < CACHE_EXPIRATION:
+                    print(f"Using cached data for {ticker}")
+                    return cache_data['data']
+        except Exception as e:
+            print(f"Error reading cache for {ticker}: {e}")
+    return None
+
+def save_to_cache(ticker, data, data_type='price'):
+    cache_path = get_cache_path(ticker, data_type)
+    try:
+        with open(cache_path, 'w') as f:
+            json.dump({
+                'timestamp': time.time(),
+                'data': data
+            }, f)
+    except Exception as e:
+        print(f"Error saving cache for {ticker}: {e}")
+
 # Get current price data for a ticker with retries and better error handling
 def get_current_price(ticker, max_retries=3):
     # For local development, use mock data if environment variable is set
@@ -98,8 +135,18 @@ def get_current_price(ticker, max_retries=3):
         print(f"Using mock data for {ticker}")
         return get_mock_price(ticker)
     
+    # Check cache first
+    cached_data = get_from_cache(ticker)
+    if cached_data:
+        return cached_data
+    
+    base_delay = 2  # seconds
+    
     for attempt in range(max_retries):
         try:
+            # Add a random delay to avoid hitting rate limits
+            time.sleep(random.uniform(1, 3))
+            
             # Get ticker data
             ticker_data = yf.Ticker(ticker)
             
@@ -112,32 +159,46 @@ def get_current_price(ticker, max_retries=3):
                 if 'regularMarketPrice' in quote_table:
                     price = quote_table['regularMarketPrice']
                     change_percent = quote_table.get('regularMarketChangePercent', 0)
-                    return {
+                    result = {
                         'price': price,
                         'change_percent': change_percent
                     }
+                    # Save to cache
+                    save_to_cache(ticker, result)
+                    return result
                 else:
                     raise ValueError(f"No price data available for {ticker}")
             
             # Get the last row for the most recent data
             latest = hist.iloc[-1]
             
-            return {
+            result = {
                 'price': latest['Close'],
                 'change_percent': ((latest['Close'] - latest['Open']) / latest['Open']) * 100 if latest['Open'] > 0 else 0
             }
+            
+            # Save to cache
+            save_to_cache(ticker, result)
+            
+            return result
         
         except Exception as e:
             print(f"Attempt {attempt+1}/{max_retries} failed for {ticker}: {str(e)}")
-            if attempt == max_retries - 1:
+            if attempt < max_retries - 1:
+                # Exponential backoff
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                print(f"Retrying in {delay:.2f} seconds...")
+                time.sleep(delay)
+            else:
                 # If all retries failed, return a default value
                 print(f"All attempts failed for {ticker}. Using default values.")
-                return {
+                default_result = {
                     'price': 0,
                     'change_percent': 0
                 }
-            # Wait before retrying
-            time.sleep(1)
+                # Save default data to cache with shorter expiration
+                save_to_cache(ticker, default_result)
+                return default_result
 
 # Get historical data for a ticker with retries
 def get_historical_data(ticker, period="1y", max_retries=3):
@@ -146,8 +207,19 @@ def get_historical_data(ticker, period="1y", max_retries=3):
         print(f"Using mock historical data for {ticker}")
         return get_mock_historical_data(ticker, period)
     
+    # Check cache first
+    cache_key = f"history_{period}"
+    cached_data = get_from_cache(ticker, cache_key)
+    if cached_data:
+        return cached_data
+    
+    base_delay = 2  # seconds
+    
     for attempt in range(max_retries):
         try:
+            # Add a random delay to avoid hitting rate limits
+            time.sleep(random.uniform(1, 3))
+            
             # Get ticker data
             ticker_data = yf.Ticker(ticker)
             
@@ -165,13 +237,21 @@ def get_historical_data(ticker, period="1y", max_retries=3):
                     'price': row['Close']
                 })
             
+            # Save to cache
+            save_to_cache(ticker, data, cache_key)
+            
             return data
         
         except Exception as e:
             print(f"Attempt {attempt+1}/{max_retries} failed for historical data of {ticker}: {str(e)}")
-            if attempt == max_retries - 1:
+            if attempt < max_retries - 1:
+                # Exponential backoff
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                print(f"Retrying in {delay:.2f} seconds...")
+                time.sleep(delay)
+            else:
                 # If all retries failed, return empty data
                 print(f"All attempts failed for historical data of {ticker}. Returning empty data.")
+                # Save empty data to cache
+                save_to_cache(ticker, [], cache_key)
                 return []
-            # Wait before retrying
-            time.sleep(1)
