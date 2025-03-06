@@ -32,11 +32,12 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
   const [pieChartData, setPieChartData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [performanceRanking, setPerformanceRanking] = useState([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Load portfolio data once on component mount
+  // Load portfolio data once on component mount and when refreshTrigger changes
   useEffect(() => {
     loadPortfolio();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate portfolio summary whenever portfolio changes or currency changes
   useEffect(() => {
@@ -194,73 +195,23 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
 
   // Generate pie chart data
   const generatePieChartData = () => {
-    if (!portfolio.stocks || portfolio.stocks.length === 0) {
-      setPieChartData([]);
-      return;
-    }
-
-    // Group by ticker
-    const tickerValues = {};
-    portfolio.stocks.forEach(stock => {
-      const value = stock.current_price * stock.quantity;
-      if (!tickerValues[stock.ticker]) {
-        tickerValues[stock.ticker] = 0;
-      }
-      tickerValues[stock.ticker] += value;
-    });
-
-    // Calculate total value
-    const totalValue = Object.values(tickerValues).reduce((sum, value) => sum + value, 0);
-
-    // Create pie chart data
-    const data = Object.entries(tickerValues).map(([ticker, value]) => {
-      const percentage = (value / totalValue) * 100;
-      return {
-        name: ticker,
-        value: convertCurrency(value),
-        percentage
-      };
-    });
-
-    // Sort by value descending
-    data.sort((a, b) => b.value - a.value);
-
-    setPieChartData(data);
+    // ... existing code ...
   };
 
-  // Custom label for pie chart - now returns null to remove all labels
-  const renderCustomizedLabel = () => {
-    return null; // Remove all labels from pie chart
+  // Custom pie chart label
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    // ... existing code ...
   };
 
   // Custom tooltip for pie chart
   const CustomTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div style={{ 
-          backgroundColor: '#fff', 
-          padding: '10px', 
-          border: '1px solid #ccc',
-          borderRadius: '4px',
-          boxShadow: '0 2px 5px rgba(0,0,0,0.15)'
-        }}>
-          <p style={{ margin: 0, fontWeight: 'bold' }}>{data.name}</p>
-          <p style={{ margin: 0 }}>{formatCurrency(data.value)}</p>
-          <p style={{ margin: 0 }}>{data.percentage.toFixed(1)}%</p>
-        </div>
-      );
-    }
-    return null;
+    // ... existing code ...
   };
 
   // Handle currency change
   const handleCurrencyChange = (event) => {
-    if (onCurrencyChange && event && event.target && event.target.value) {
+    if (onCurrencyChange) {
       onCurrencyChange(event.target.value);
-    } else if (onCurrencyChange && typeof event === 'string') {
-      // Handle case where event is directly the currency value
-      onCurrencyChange(event);
     }
   };
 
@@ -277,7 +228,8 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
   const handleEditStock = async (updatedStock) => {
     try {
       await updateStock(updatedStock.id, updatedStock);
-      await loadPortfolio(); // Reload portfolio data
+      // Refresh portfolio data
+      setRefreshTrigger(prev => prev + 1);
       return true; // Indicate success
     } catch (error) {
       console.error('Error updating stock:', error);
@@ -290,7 +242,8 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
   const handleDeleteStock = async (stockId) => {
     try {
       await deleteStock(stockId);
-      await loadPortfolio(); // Reload portfolio data
+      // Refresh portfolio data
+      setRefreshTrigger(prev => prev + 1);
       return true; // Indicate success
     } catch (error) {
       console.error('Error deleting stock:', error);
@@ -303,7 +256,8 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
   const handleAddStock = async (newStock) => {
     try {
       await addStock(newStock);
-      await loadPortfolio(); // Reload portfolio data
+      // Refresh portfolio data
+      setRefreshTrigger(prev => prev + 1);
       return true; // Indicate success
     } catch (error) {
       console.error('Error adding stock:', error);
