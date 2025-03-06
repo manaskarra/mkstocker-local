@@ -13,9 +13,18 @@ CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://mksto
 
 # MongoDB connection
 MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/mkstocker')
-client = MongoClient(MONGO_URI)
-db = client.get_database('mkstocker')
-stocks_collection = db.stocks
+print(f"Using MongoDB URI: {MONGO_URI.replace(MONGO_URI.split('@')[0], '***')}")  # Hide credentials in logs
+
+try:
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)  # 5 second timeout
+    # Force a connection to verify it works
+    client.admin.command('ping')
+    print("MongoDB connection successful!")
+    db = client.get_database('mkstocker')
+    stocks_collection = db.stocks
+except Exception as e:
+    print(f"MongoDB connection error: {e}")
+    # Continue with file-based fallback
 
 # Fallback to file-based storage if MongoDB connection fails
 PORTFOLIO_FILE = os.path.join(os.path.dirname(__file__), 'portfolio.json')
