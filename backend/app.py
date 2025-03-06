@@ -9,7 +9,7 @@ import os
 app = Flask(__name__)
 
 # Configure CORS to allow requests from your local domain
-CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://mkstocker.vercel.app"]}})
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://mkstocker.onrender.com", "https://mkstocker-730k.onrender.com"]}})
 
 # MongoDB connection
 MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/mkstocker')
