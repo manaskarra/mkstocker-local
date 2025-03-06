@@ -30,8 +30,8 @@ export const fetchStocks = async (forceRefresh = false) => {
   
   try {
     console.log('Fetching fresh stock data from API');
-    // Use /api/portfolio endpoint instead of /api/stocks
-    const response = await api.get('/api/portfolio');
+    // Use /api/stocks endpoint
+    const response = await api.get('/api/stocks');
     const data = response.data;
     
     // Update the cache
@@ -48,8 +48,8 @@ export const fetchStocks = async (forceRefresh = false) => {
 export const updateStock = async (id, stockData) => {
   try {
     console.log('Updating stock:', id, stockData);
-    // Use /api/portfolio endpoint instead of /api/stocks/${id}
-    const response = await api.put(`/api/portfolio`, { id, ...stockData });
+    // Use /api/stocks/${id} endpoint
+    const response = await api.put(`/api/stocks/${id}`, stockData);
     
     // Update the cache with the new data
     if (stockCache && stockCache.stocks) {
@@ -75,8 +75,8 @@ export const updateStock = async (id, stockData) => {
 export const deleteStock = async (id) => {
   try {
     console.log('Deleting stock:', id);
-    // Use /api/portfolio endpoint instead of /api/stocks/${id}
-    const response = await api.delete(`/api/portfolio`, { data: { id } });
+    // Use /api/stocks/${id} endpoint
+    const response = await api.delete(`/api/stocks/${id}`);
     
     // Update the cache by removing the deleted stock
     if (stockCache && stockCache.stocks) {
@@ -100,8 +100,8 @@ export const deleteStock = async (id) => {
 export const addStock = async (stockData) => {
   try {
     console.log('Adding stock:', stockData);
-    // Use /api/portfolio endpoint instead of /api/stocks
-    const response = await api.post('/api/portfolio', stockData);
+    // Use /api/stocks endpoint
+    const response = await api.post('/api/stocks', stockData);
     console.log('Add stock response:', response.data);
     const newStock = response.data;
     
