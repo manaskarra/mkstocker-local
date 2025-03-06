@@ -1,3 +1,14 @@
+import axios from 'axios';
+
+// Create an axios instance with default config
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
 // In-memory cache for stock data
 let stockCache = null;
 
@@ -7,12 +18,6 @@ let refreshCallback = null;
 // Function to set the refresh callback
 export const setRefreshCallback = (callback) => {
   refreshCallback = callback;
-};
-
-// Helper function to get the base URL
-const getBaseUrl = () => {
-  // Use window.location.origin to get the current domain
-  return window.location.origin;
 };
 
 // API functions
@@ -25,14 +30,9 @@ export const fetchStocks = async (forceRefresh = false) => {
   
   try {
     console.log('Fetching fresh stock data from API');
-    const url = `${getBaseUrl()}/api/stocks`;
-    console.log('Fetching from URL:', url);
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
+    // Use /api/stocks endpoint
+    const response = await api.get('/api/stocks');
+    const data = response.data;
     
     // Update the cache
     stockCache = data;
@@ -46,23 +46,8 @@ export const fetchStocks = async (forceRefresh = false) => {
 
 export const updateStock = async (id, stockData) => {
   try {
-    console.log('Updating stock:', id, stockData);
-    const url = `${getBaseUrl()}/api/stocks/${id}`;
-    console.log('Updating at URL:', url);
-    
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(stockData),
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const result = await response.json();
+    // Use /api/stocks/${id} endpoint
+    const response = await api.put(`/api/stocks/${id}`, stockData);
     
     // Update the cache with the new data
     if (stockCache && stockCache.stocks) {
@@ -77,7 +62,7 @@ export const updateStock = async (id, stockData) => {
       refreshCallback();
     }
     
-    return result;
+    return response.data;
   } catch (error) {
     console.error(`Error updating stock ${id}:`, error);
     throw error;
@@ -86,19 +71,8 @@ export const updateStock = async (id, stockData) => {
 
 export const deleteStock = async (id) => {
   try {
-    console.log('Deleting stock:', id);
-    const url = `${getBaseUrl()}/api/stocks/${id}`;
-    console.log('Deleting at URL:', url);
-    
-    const response = await fetch(url, {
-      method: 'DELETE',
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const result = await response.json();
+    // Use /api/stocks/${id} endpoint
+    const response = await api.delete(`/api/stocks/${id}`);
     
     // Update the cache by removing the deleted stock
     if (stockCache && stockCache.stocks) {
@@ -111,7 +85,7 @@ export const deleteStock = async (id) => {
       refreshCallback();
     }
     
-    return result;
+    return response.data;
   } catch (error) {
     console.error(`Error deleting stock ${id}:`, error);
     throw error;
@@ -120,26 +94,9 @@ export const deleteStock = async (id) => {
 
 export const addStock = async (stockData) => {
   try {
-    console.log('Adding stock:', stockData);
-    const url = `${getBaseUrl()}/api/stocks`;
-    console.log('Adding at URL:', url);
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(stockData),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response:', errorText);
-      throw new Error(`Failed to add stock: ${response.status} ${errorText}`);
-    }
-    
-    const newStock = await response.json();
-    console.log('Add stock response:', newStock);
+    // Use /api/stocks endpoint
+    const response = await api.post('/api/stocks', stockData);
+    const newStock = response.data;
     
     // Update the cache with the new stock
     if (stockCache && stockCache.stocks) {
@@ -158,3 +115,5 @@ export const addStock = async (stockData) => {
     throw error;
   }
 };
+
+export default api;
