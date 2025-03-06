@@ -1,15 +1,3 @@
-import axios from 'axios';
-
-// Create an axios instance with default config
-const api = axios.create({
-  // Use the current domain for API calls instead of localhost
-  baseURL: '',  // Empty string means use the current domain
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
-
 // In-memory cache for stock data
 let stockCache = null;
 
@@ -31,9 +19,11 @@ export const fetchStocks = async (forceRefresh = false) => {
   
   try {
     console.log('Fetching fresh stock data from API');
-    // Use /api/stocks endpoint
-    const response = await api.get('/api/stocks');
-    const data = response.data;
+    const response = await fetch('/api/stocks');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
     
     // Update the cache
     stockCache = data;
@@ -41,7 +31,6 @@ export const fetchStocks = async (forceRefresh = false) => {
     return data;
   } catch (error) {
     console.error('Error fetching stocks:', error);
-    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -49,8 +38,19 @@ export const fetchStocks = async (forceRefresh = false) => {
 export const updateStock = async (id, stockData) => {
   try {
     console.log('Updating stock:', id, stockData);
-    // Use /api/stocks/${id} endpoint
-    const response = await api.put(`/api/stocks/${id}`, stockData);
+    const response = await fetch(`/api/stocks/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(stockData),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
     
     // Update the cache with the new data
     if (stockCache && stockCache.stocks) {
@@ -65,10 +65,9 @@ export const updateStock = async (id, stockData) => {
       refreshCallback();
     }
     
-    return response.data;
+    return result;
   } catch (error) {
     console.error(`Error updating stock ${id}:`, error);
-    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -76,8 +75,15 @@ export const updateStock = async (id, stockData) => {
 export const deleteStock = async (id) => {
   try {
     console.log('Deleting stock:', id);
-    // Use /api/stocks/${id} endpoint
-    const response = await api.delete(`/api/stocks/${id}`);
+    const response = await fetch(`/api/stocks/${id}`, {
+      method: 'DELETE',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
     
     // Update the cache by removing the deleted stock
     if (stockCache && stockCache.stocks) {
@@ -90,10 +96,9 @@ export const deleteStock = async (id) => {
       refreshCallback();
     }
     
-    return response.data;
+    return result;
   } catch (error) {
     console.error(`Error deleting stock ${id}:`, error);
-    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -101,10 +106,22 @@ export const deleteStock = async (id) => {
 export const addStock = async (stockData) => {
   try {
     console.log('Adding stock:', stockData);
-    // Use /api/stocks endpoint
-    const response = await api.post('/api/stocks', stockData);
-    console.log('Add stock response:', response.data);
-    const newStock = response.data;
+    const response = await fetch('/api/stocks', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(stockData),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      throw new Error(`Failed to add stock: ${response.status} ${errorText}`);
+    }
+    
+    const newStock = await response.json();
+    console.log('Add stock response:', newStock);
     
     // Update the cache with the new stock
     if (stockCache && stockCache.stocks) {
@@ -120,9 +137,6 @@ export const addStock = async (stockData) => {
     return newStock;
   } catch (error) {
     console.error('Error adding stock:', error);
-    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 };
-
-export default api;
