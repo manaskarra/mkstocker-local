@@ -48,6 +48,7 @@ const StockForm = ({ open, handleClose, handleSubmit, initialValues }) => {
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
+    console.log('Form submitted with data:', formData);
     handleSubmit(formData);
   };
 

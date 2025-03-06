@@ -35,11 +35,15 @@ const Stocks = ({ currency, onCurrencyChange }) => {
   };
 
   const handleAddSubmit = async (newStock) => {
+    console.log('handleAddSubmit called with:', newStock);
     try {
-      await addStock(newStock);
+      const result = await addStock(newStock);
+      console.log('addStock result:', result);
       loadStocks(); // Reload stocks after adding
+      setAddDialogOpen(false); // Close the dialog
     } catch (error) {
       console.error('Error adding stock:', error);
+      alert(`Failed to add stock: ${error.message}`);
     }
   };
 
