@@ -1,4 +1,4 @@
-#!/Users/manaskarra/Desktop/stock-portfolio-app/venv/bin/python3.12
+#!/Users/manaskarra/Desktop/stock-portfolio-app/backend/venv/bin/python3.12
 # -*- coding: utf-8 -*-
 import re
 import sys
