@@ -9,6 +9,12 @@ export const setRefreshCallback = (callback) => {
   refreshCallback = callback;
 };
 
+// Helper function to get the base URL
+const getBaseUrl = () => {
+  // Use window.location.origin to get the current domain
+  return window.location.origin;
+};
+
 // API functions
 export const fetchStocks = async (forceRefresh = false) => {
   // If we have cached data and no force refresh, return the cache
@@ -19,7 +25,10 @@ export const fetchStocks = async (forceRefresh = false) => {
   
   try {
     console.log('Fetching fresh stock data from API');
-    const response = await fetch('/api/stocks');
+    const url = `${getBaseUrl()}/api/stocks`;
+    console.log('Fetching from URL:', url);
+    
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -38,7 +47,10 @@ export const fetchStocks = async (forceRefresh = false) => {
 export const updateStock = async (id, stockData) => {
   try {
     console.log('Updating stock:', id, stockData);
-    const response = await fetch(`/api/stocks/${id}`, {
+    const url = `${getBaseUrl()}/api/stocks/${id}`;
+    console.log('Updating at URL:', url);
+    
+    const response = await fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -75,7 +87,10 @@ export const updateStock = async (id, stockData) => {
 export const deleteStock = async (id) => {
   try {
     console.log('Deleting stock:', id);
-    const response = await fetch(`/api/stocks/${id}`, {
+    const url = `${getBaseUrl()}/api/stocks/${id}`;
+    console.log('Deleting at URL:', url);
+    
+    const response = await fetch(url, {
       method: 'DELETE',
     });
     
@@ -106,7 +121,10 @@ export const deleteStock = async (id) => {
 export const addStock = async (stockData) => {
   try {
     console.log('Adding stock:', stockData);
-    const response = await fetch('/api/stocks', {
+    const url = `${getBaseUrl()}/api/stocks`;
+    console.log('Adding at URL:', url);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

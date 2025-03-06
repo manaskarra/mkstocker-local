@@ -1,4 +1,4 @@
-const { MongoClient } = require('mongodb');
+import { MongoClient } from 'mongodb';
 
 // Create a cached connection variable
 let cachedDb = null;
@@ -18,21 +18,9 @@ async function connectToDatabase() {
   return db;
 }
 
-// Export the API handler function
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   try {
-    console.log('API request received:', req.method, req.url);
-    
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-
-    // Handle OPTIONS method for preflight requests
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
-    }
+    console.log('API request received:', req.method);
     
     // Connect to the database
     const db = await connectToDatabase();
@@ -46,13 +34,10 @@ module.exports = async (req, res) => {
         
       case 'POST':
         console.log('Request body:', req.body);
-        // Parse the request body if it's a string
-        const newData = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        console.log('Parsed data:', newData);
         
         // Add timestamp and generate ID if not provided
         const stockToAdd = {
-          ...newData,
+          ...req.body,
           created_at: new Date().toISOString()
         };
         
@@ -64,6 +49,6 @@ module.exports = async (req, res) => {
     }
   } catch (error) {
     console.error('Error in API route:', error);
-    return res.status(500).json({ error: error.message, stack: error.stack });
+    return res.status(500).json({ error: error.message });
   }
-};
+}
