@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an axios instance with default config
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+  baseURL: process.env.REACT_APP_API_URL || '',  // Remove localhost:5000 for Vercel deployment
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -30,8 +30,8 @@ export const fetchStocks = async (forceRefresh = false) => {
   
   try {
     console.log('Fetching fresh stock data from API');
-    // Use /api/stocks endpoint
-    const response = await api.get('/api/stocks');
+    // Use /api/portfolio endpoint instead of /api/stocks
+    const response = await api.get('/api/portfolio');
     const data = response.data;
     
     // Update the cache
@@ -40,14 +40,16 @@ export const fetchStocks = async (forceRefresh = false) => {
     return data;
   } catch (error) {
     console.error('Error fetching stocks:', error);
+    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 };
 
 export const updateStock = async (id, stockData) => {
   try {
-    // Use /api/stocks/${id} endpoint
-    const response = await api.put(`/api/stocks/${id}`, stockData);
+    console.log('Updating stock:', id, stockData);
+    // Use /api/portfolio endpoint instead of /api/stocks/${id}
+    const response = await api.put(`/api/portfolio`, { id, ...stockData });
     
     // Update the cache with the new data
     if (stockCache && stockCache.stocks) {
@@ -65,14 +67,16 @@ export const updateStock = async (id, stockData) => {
     return response.data;
   } catch (error) {
     console.error(`Error updating stock ${id}:`, error);
+    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 };
 
 export const deleteStock = async (id) => {
   try {
-    // Use /api/stocks/${id} endpoint
-    const response = await api.delete(`/api/stocks/${id}`);
+    console.log('Deleting stock:', id);
+    // Use /api/portfolio endpoint instead of /api/stocks/${id}
+    const response = await api.delete(`/api/portfolio`, { data: { id } });
     
     // Update the cache by removing the deleted stock
     if (stockCache && stockCache.stocks) {
@@ -88,14 +92,17 @@ export const deleteStock = async (id) => {
     return response.data;
   } catch (error) {
     console.error(`Error deleting stock ${id}:`, error);
+    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 };
 
 export const addStock = async (stockData) => {
   try {
-    // Use /api/stocks endpoint
-    const response = await api.post('/api/stocks', stockData);
+    console.log('Adding stock:', stockData);
+    // Use /api/portfolio endpoint instead of /api/stocks
+    const response = await api.post('/api/portfolio', stockData);
+    console.log('Add stock response:', response.data);
     const newStock = response.data;
     
     // Update the cache with the new stock
@@ -112,6 +119,7 @@ export const addStock = async (stockData) => {
     return newStock;
   } catch (error) {
     console.error('Error adding stock:', error);
+    console.error('Error details:', error.response?.data || error.message);
     throw error;
   }
 };
