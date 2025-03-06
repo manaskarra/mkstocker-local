@@ -3,25 +3,58 @@ from flask_cors import CORS
 import json
 import os
 from stock_data import get_current_price, get_historical_data
+from pymongo import MongoClient
+import os
 
 app = Flask(__name__)
 
 # Configure CORS to allow requests from your local domain
 CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://mkstocker.vercel.app"]}})
 
-# In-memory database for simplicity (replace with a real DB in production)
-# Use a relative path that works in development
+# MongoDB connection
+MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/mkstocker')
+client = MongoClient(MONGO_URI)
+db = client.get_database('mkstocker')
+stocks_collection = db.stocks
+
+# Fallback to file-based storage if MongoDB connection fails
 PORTFOLIO_FILE = os.path.join(os.path.dirname(__file__), 'portfolio.json')
 
 def load_portfolio():
-    if os.path.exists(PORTFOLIO_FILE):
-        with open(PORTFOLIO_FILE, 'r') as f:
-            return json.load(f)
-    return {'stocks': []}
+    try:
+        # Try to load from MongoDB
+        stocks = list(stocks_collection.find({}, {'_id': 0}))
+        if stocks:
+            return {'stocks': stocks}
+        
+        # If MongoDB is empty but file exists, migrate data from file to MongoDB
+        if os.path.exists(PORTFOLIO_FILE):
+            with open(PORTFOLIO_FILE, 'r') as f:
+                portfolio = json.load(f)
+                if portfolio.get('stocks'):
+                    for stock in portfolio['stocks']:
+                        stocks_collection.insert_one(stock)
+                return portfolio
+        return {'stocks': []}
+    except Exception as e:
+        print(f"MongoDB error: {e}, falling back to file storage")
+        # Fallback to file-based storage
+        if os.path.exists(PORTFOLIO_FILE):
+            with open(PORTFOLIO_FILE, 'r') as f:
+                return json.load(f)
+        return {'stocks': []}
 
 def save_portfolio(portfolio):
-    with open(PORTFOLIO_FILE, 'w') as f:
-        json.dump(portfolio, f)
+    try:
+        # Clear existing stocks and insert new ones
+        stocks_collection.delete_many({})
+        if portfolio.get('stocks'):
+            stocks_collection.insert_many(portfolio['stocks'])
+    except Exception as e:
+        print(f"MongoDB error: {e}, falling back to file storage")
+        # Fallback to file-based storage
+        with open(PORTFOLIO_FILE, 'w') as f:
+            json.dump(portfolio, f)
 
 @app.route('/api/stocks', methods=['GET'])
 def get_stocks():
@@ -165,4 +198,5 @@ def catch_all(path):
     return jsonify({"message": "API endpoint not found"}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
