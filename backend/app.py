@@ -5,6 +5,8 @@ import os
 from stock_data import get_current_price, get_historical_data
 from pymongo import MongoClient
 import os
+import time
+import random
 
 app = Flask(__name__)
 
@@ -13,57 +15,118 @@ CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "https://mksto
 
 # MongoDB connection
 MONGO_URI = os.environ.get('MONGO_URI', 'mongodb://localhost:27017/mkstocker')
-print(f"Using MongoDB URI: {MONGO_URI.replace(MONGO_URI.split('@')[0], '***')}")  # Hide credentials in logs
+print(f"Using MongoDB URI: {MONGO_URI.replace(MONGO_URI.split('@')[0] if '@' in MONGO_URI else MONGO_URI, '***')}")
+
+# Extract database name from URI or use default
+db_name = 'mkstocker'
+if 'mongodb+srv://' in MONGO_URI or 'mongodb://' in MONGO_URI:
+    try:
+        # Parse the URI to extract the database name
+        if '/' in MONGO_URI:
+            parts = MONGO_URI.split('/')
+            if len(parts) >= 4:
+                potential_db = parts[3].split('?')[0]
+                if potential_db:
+                    db_name = potential_db
+    except Exception as e:
+        print(f"Error parsing database name from URI: {e}")
+
+print(f"Using database name: {db_name}")
 
 try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)  # 5 second timeout
-    # Force a connection to verify it works
+    # Connect to MongoDB with a timeout
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    # Test the connection
     client.admin.command('ping')
     print("MongoDB connection successful!")
-    db = client.get_database('mkstocker')
+    
+    # Get the database
+    db = client[db_name]
     stocks_collection = db.stocks
+    
+    # Test the collection
+    stocks_count = stocks_collection.count_documents({})
+    print(f"Found {stocks_count} stocks in the database")
+    
+    # Set flag for MongoDB availability
+    use_mongodb = True
 except Exception as e:
     print(f"MongoDB connection error: {e}")
-    # Continue with file-based fallback
+    print("Falling back to file storage")
+    use_mongodb = False
 
 # Fallback to file-based storage if MongoDB connection fails
 PORTFOLIO_FILE = os.path.join(os.path.dirname(__file__), 'portfolio.json')
 
 def load_portfolio():
     try:
-        # Try to load from MongoDB
-        stocks = list(stocks_collection.find({}, {'_id': 0}))
-        if stocks:
-            return {'stocks': stocks}
-        
-        # If MongoDB is empty but file exists, migrate data from file to MongoDB
-        if os.path.exists(PORTFOLIO_FILE):
-            with open(PORTFOLIO_FILE, 'r') as f:
-                portfolio = json.load(f)
-                if portfolio.get('stocks'):
-                    for stock in portfolio['stocks']:
-                        stocks_collection.insert_one(stock)
-                return portfolio
-        return {'stocks': []}
+        # Try to load from MongoDB if available
+        if use_mongodb:
+            stocks = list(stocks_collection.find({}, {'_id': 0}))
+            if stocks:
+                return {'stocks': stocks}
+            
+            # If MongoDB is empty but file exists, migrate data from file to MongoDB
+            if os.path.exists(PORTFOLIO_FILE):
+                with open(PORTFOLIO_FILE, 'r') as f:
+                    portfolio = json.load(f)
+                    if portfolio.get('stocks'):
+                        for stock in portfolio['stocks']:
+                            stocks_collection.insert_one(stock)
+                    return portfolio
+            return {'stocks': []}
     except Exception as e:
-        print(f"MongoDB error: {e}, falling back to file storage")
-        # Fallback to file-based storage
-        if os.path.exists(PORTFOLIO_FILE):
-            with open(PORTFOLIO_FILE, 'r') as f:
-                return json.load(f)
-        return {'stocks': []}
+        print(f"MongoDB error in load_portfolio: {e}, falling back to file storage")
+    
+    # Fallback to file-based storage
+    if os.path.exists(PORTFOLIO_FILE):
+        with open(PORTFOLIO_FILE, 'r') as f:
+            return json.load(f)
+    return {'stocks': []}
 
 def save_portfolio(portfolio):
     try:
-        # Clear existing stocks and insert new ones
-        stocks_collection.delete_many({})
-        if portfolio.get('stocks'):
-            stocks_collection.insert_many(portfolio['stocks'])
+        # Try to save to MongoDB if available
+        if use_mongodb:
+            # Clear existing stocks and insert new ones
+            stocks_collection.delete_many({})
+            if portfolio.get('stocks'):
+                stocks_collection.insert_many(portfolio['stocks'])
+            return
     except Exception as e:
-        print(f"MongoDB error: {e}, falling back to file storage")
-        # Fallback to file-based storage
-        with open(PORTFOLIO_FILE, 'w') as f:
-            json.dump(portfolio, f)
+        print(f"MongoDB error in save_portfolio: {e}, falling back to file storage")
+    
+    # Fallback to file-based storage
+    with open(PORTFOLIO_FILE, 'w') as f:
+        json.dump(portfolio, f)
+
+# Improved function to get stock data with retry logic
+def get_stock_data_with_retry(ticker):
+    max_retries = 3
+    base_delay = 2  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            # Add a random delay to avoid hitting rate limits
+            time.sleep(random.uniform(1, 3))
+            
+            # Get current price data
+            return get_current_price(ticker)
+        except Exception as e:
+            print(f"Attempt {attempt+1}/{max_retries} failed for {ticker}: {str(e)}")
+            if attempt < max_retries - 1:
+                # Exponential backoff
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                print(f"Retrying in {delay:.2f} seconds...")
+                time.sleep(delay)
+    
+    print(f"All attempts failed for {ticker}. Using default values.")
+    # Return default values
+    return {
+        "price": 0,
+        "change_percent": 0,
+        "name": ticker
+    }
 
 @app.route('/api/stocks', methods=['GET'])
 def get_stocks():
@@ -87,7 +150,7 @@ def get_stocks():
     # Fetch current prices for all stocks
     for stock in portfolio['stocks']:
         try:
-            current_data = get_current_price(stock['ticker'])
+            current_data = get_stock_data_with_retry(stock['ticker'])
             stock['current_price'] = current_data['price']
             stock['price_change'] = current_data['change_percent']
             stock['current_value'] = stock['current_price'] * stock['quantity']
@@ -108,7 +171,7 @@ def add_stock():
     
     # Add current price data
     try:
-        current_data = get_current_price(new_stock['ticker'])
+        current_data = get_stock_data_with_retry(new_stock['ticker'])
         new_stock['current_price'] = current_data['price']
         new_stock['price_change'] = current_data['change_percent']
         new_stock['current_value'] = new_stock['current_price'] * new_stock['quantity']
@@ -116,6 +179,12 @@ def add_stock():
         new_stock['profit_loss_percent'] = (new_stock['profit_loss'] / (new_stock['buy_price'] * new_stock['quantity'])) * 100
     except Exception as e:
         print(f"Error fetching data for {new_stock['ticker']}: {e}")
+        # Set default values if data fetch fails
+        new_stock['current_price'] = 0
+        new_stock['price_change'] = 0
+        new_stock['current_value'] = 0
+        new_stock['profit_loss'] = 0
+        new_stock['profit_loss_percent'] = 0
     
     # Generate a unique ID
     new_stock['id'] = str(len(portfolio['stocks']) + 1)
