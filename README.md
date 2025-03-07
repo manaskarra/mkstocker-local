@@ -23,3 +23,4 @@ Built with React and Flask, this project reflects my growing interest in finance
 ---
 
 Created by Manas Karra: https://www.linkedin.com/in/manas-karra/
+<img width="1303" alt="Screenshot 2025-03-07 at 9 50 24 PM" src="https://github.com/user-attachments/assets/639f2cce-11f4-4d1c-be72-e7fcfcb90136" />
