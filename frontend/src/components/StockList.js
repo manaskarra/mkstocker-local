@@ -26,8 +26,9 @@ import {
   DialogActions,
   TextField,
   Collapse,
+  CircularProgress
 } from '@mui/material';
-import { Edit, Delete, Add, ArrowUpward, ArrowDownward, MoreVert, KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
+import { Edit, Delete, Add, ArrowUpward, ArrowDownward, MoreVert, KeyboardArrowDown, KeyboardArrowUp, Refresh } from '@mui/icons-material';
 import StockForm from './StockForm';
 
 // The password to protect admin actions
@@ -62,13 +63,24 @@ const StockList = ({
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Format currency for display
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
+  const formatCurrency = (value, currencyCode) => {
+    // Add validation to ensure currencyCode is a string
+    if (typeof currencyCode !== 'string') {
+      console.error('Invalid currency code:', currencyCode);
+      currencyCode = 'USD'; // Default to USD if invalid
+    }
+    
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(value);
+    } catch (error) {
+      console.error('Error formatting currency:', error);
+      return `${value} ${currencyCode}`;
+    }
   };
 
   // Toggle expanded state for a ticker
@@ -280,6 +292,16 @@ const StockList = ({
     handleReorderClose();
   };
 
+  // Handle currency change
+  const handleCurrencyChange = (event) => {
+    // Make sure we're using the value from the event, not the event itself
+    if (event && event.target && event.target.value) {
+      onCurrencyChange(event.target.value);
+    } else {
+      console.error('Invalid event in handleCurrencyChange:', event);
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -292,7 +314,7 @@ const StockList = ({
               id="currency-select"
               value={currency}
               label="Currency"
-              onChange={onCurrencyChange}
+              onChange={handleCurrencyChange}
             >
               <MenuItem value="USD">USD</MenuItem>
               <MenuItem value="AED">AED</MenuItem>
@@ -345,7 +367,7 @@ const StockList = ({
                         sx={{ fontSize: '1rem', height: 'auto', py: 0.5 }}
                       />
                     </TableCell>
-                    <TableCell align="right">{formatCurrency(summary.totalCurrentValue)}</TableCell>
+                    <TableCell align="right">{formatCurrency(summary.totalCurrentValue, currency)}</TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Typography 
@@ -353,7 +375,7 @@ const StockList = ({
                           fontWeight="medium"
                           color={summary.totalProfitLoss >= 0 ? 'success.main' : 'error.main'}
                         >
-                          {formatCurrency(summary.totalProfitLoss)}
+                          {formatCurrency(summary.totalProfitLoss, currency)}
                         </Typography>
                         <Chip 
                           size="small"
@@ -402,16 +424,16 @@ const StockList = ({
                                 <TableRow key={stock.id}>
                                   <TableCell>{stock.buy_date}</TableCell>
                                   <TableCell align="right">{stock.quantity}</TableCell>
-                                  <TableCell align="right">{formatCurrency(stock.buy_price)}</TableCell>
-                                  <TableCell align="right"><strong>{formatCurrency(stock.current_price)}</strong></TableCell>
-                                  <TableCell align="center">{formatCurrency(stock.current_value)}</TableCell>
+                                  <TableCell align="right">{formatCurrency(stock.buy_price, currency)}</TableCell>
+                                  <TableCell align="right"><strong>{formatCurrency(stock.current_price, currency)}</strong></TableCell>
+                                  <TableCell align="center">{formatCurrency(stock.current_value, currency)}</TableCell>
                                   <TableCell>
                                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                       <Typography 
                                         variant="body2"
                                         color={stock.profit_loss >= 0 ? 'success.main' : 'error.main'}
                                       >
-                                        {formatCurrency(stock.profit_loss)}
+                                        {formatCurrency(stock.profit_loss, currency)}
                                       </Typography>
                                       <Typography 
                                         variant="caption"

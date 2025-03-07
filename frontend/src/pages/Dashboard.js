@@ -106,12 +106,28 @@ const Dashboard = ({
 
   // Format currency for display
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value);
+    // Fix 1: Add validation to ensure currency is a string
+    if (typeof currency !== 'string') {
+      console.error('Invalid currency code:', currency);
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(value);
+    }
+    
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(value);
+    } catch (error) {
+      console.error('Error formatting currency:', error);
+      return `${value} ${currency}`;
+    }
   };
 
   // Calculate portfolio summary
@@ -303,7 +319,8 @@ const Dashboard = ({
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={renderCustomizedLabel}
+                  // Fix 2: Remove the label prop to remove percentage text from pie chart
+                  // label={renderCustomizedLabel}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
