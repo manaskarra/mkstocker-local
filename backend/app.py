@@ -60,14 +60,14 @@ def get_stock_data_with_retry(ticker):
                 print(f"All retries failed for {ticker}")
                 raise
 
-# Cache stock data with a longer expiration (24 hours)
+# Cache stock data with a shorter expiration (5 minutes instead of 24 hours)
 def get_cached_stock_data(ticker):
     cache_file = os.path.join(CACHE_DIR, f"{ticker}.pkl")
     
-    # Check if cache exists and is fresh (less than 24 hours old)
+    # Check if cache exists and is fresh (less than 5 minutes old)
     if os.path.exists(cache_file):
         file_age = datetime.now() - datetime.fromtimestamp(os.path.getmtime(cache_file))
-        if file_age < timedelta(hours=24):
+        if file_age < timedelta(minutes=5):  # Changed from hours=24 to minutes=5
             try:
                 with open(cache_file, 'rb') as f:
                     return pickle.load(f)
