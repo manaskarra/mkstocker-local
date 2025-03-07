@@ -21,7 +21,15 @@ const COLORS = [
   '#B82E2E', '#316395', '#994499', '#22AA99'
 ];
 
-const Dashboard = ({ currency, onCurrencyChange }) => {
+const Dashboard = ({ 
+  currency, 
+  onCurrencyChange, 
+  portfolioData, 
+  loading, 
+  onRefresh, 
+  isRefreshing, 
+  lastUpdateTime 
+}) => {
   const [portfolio, setPortfolio] = useState({ stocks: [] });
   const [portfolioSummary, setPortfolioSummary] = useState({
     total_investment: 0,
@@ -30,19 +38,21 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
     profit_loss_percent: 0
   });
   const [pieChartData, setPieChartData] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [performanceRanking, setPerformanceRanking] = useState([]);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [convertedStocks, setConvertedStocks] = useState([]);
 
-  // Load portfolio data once on component mount and when refreshTrigger changes
+  // Update portfolio when portfolioData changes
   useEffect(() => {
-    loadPortfolio();
-  }, [refreshTrigger]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (portfolioData) {
+      setPortfolio(portfolioData);
+    }
+  }, [portfolioData]);
 
   // Calculate portfolio summary whenever portfolio changes or currency changes
   useEffect(() => {
     calculatePortfolioSummary();
     generatePieChartData();
+    convertStocksForDisplay();
   }, [portfolio, currency]);
 
   // Calculate performance ranking
@@ -104,62 +114,6 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
     }).format(value);
   };
 
-  // Load portfolio data from API
-  const loadPortfolio = async () => {
-    setIsLoading(true);
-    try {
-      const data = await fetchStocks();
-      
-      // Sort stocks based on fixed order
-      if (data.stocks && data.stocks.length > 0) {
-        // Group stocks by ticker
-        const stocksByTicker = {};
-        data.stocks.forEach(stock => {
-          const baseTicker = stock.ticker.split('-')[0]; // Handle tickers like BTC-USD
-          if (!stocksByTicker[baseTicker]) {
-            stocksByTicker[baseTicker] = [];
-          }
-          stocksByTicker[baseTicker].push(stock);
-        });
-        
-        // Get unique tickers
-        const tickers = Object.keys(stocksByTicker);
-        
-        // Sort tickers based on fixed order
-        tickers.sort((a, b) => {
-          const aIndex = FIXED_ORDER_TICKERS.indexOf(a);
-          const bIndex = FIXED_ORDER_TICKERS.indexOf(b);
-          
-          if (aIndex !== -1 && bIndex !== -1) {
-            return aIndex - bIndex;
-          } else if (aIndex !== -1) {
-            return -1;
-          } else if (bIndex !== -1) {
-            return 1;
-          } else {
-            return a.localeCompare(b);
-          }
-        });
-        
-        // Flatten sorted stocks
-        const sortedStocks = [];
-        tickers.forEach(ticker => {
-          stocksByTicker[ticker].forEach(stock => {
-            sortedStocks.push(stock);
-          });
-        });
-        
-        data.stocks = sortedStocks;
-      }
-      
-      setPortfolio(data);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error loading portfolio:', error);
-      setIsLoading(false);
-    }
-  };
-
   // Calculate portfolio summary
   const calculatePortfolioSummary = () => {
     if (!portfolio.stocks || portfolio.stocks.length === 0) {
@@ -171,102 +125,161 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
       });
       return;
     }
-
-    const total_investment = portfolio.stocks.reduce(
-      (sum, stock) => sum + (stock.buy_price * stock.quantity),
-      0
-    );
     
-    const current_value = portfolio.stocks.reduce(
-      (sum, stock) => sum + (stock.current_price * stock.quantity),
-      0
-    );
+    let totalInvestment = 0;
+    let currentValue = 0;
     
-    const profit_loss = current_value - total_investment;
-    const profit_loss_percent = (profit_loss / total_investment) * 100;
-
+    portfolio.stocks.forEach(stock => {
+      totalInvestment += stock.buy_price * stock.quantity;
+      currentValue += stock.current_price * stock.quantity;
+    });
+    
+    const profitLoss = currentValue - totalInvestment;
+    const profitLossPercent = totalInvestment > 0 
+      ? (profitLoss / totalInvestment) * 100 
+      : 0;
+    
     setPortfolioSummary({
-      total_investment: convertCurrency(total_investment),
-      current_value: convertCurrency(current_value),
-      profit_loss: convertCurrency(profit_loss),
-      profit_loss_percent
+      total_investment: convertCurrency(totalInvestment),
+      current_value: convertCurrency(currentValue),
+      profit_loss: convertCurrency(profitLoss),
+      profit_loss_percent: profitLossPercent
     });
   };
 
   // Generate pie chart data
   const generatePieChartData = () => {
-    // ... existing code ...
+    if (!portfolio.stocks || portfolio.stocks.length === 0) {
+      setPieChartData([]);
+      return;
+    }
+    
+    // Group by ticker
+    const tickerValues = {};
+    let totalValue = 0;
+    
+    portfolio.stocks.forEach(stock => {
+      const value = stock.current_price * stock.quantity;
+      totalValue += value;
+      
+      const baseTicker = stock.ticker.split('-')[0]; // Handle tickers like BTC-USD
+      
+      if (!tickerValues[baseTicker]) {
+        tickerValues[baseTicker] = 0;
+      }
+      
+      tickerValues[baseTicker] += value;
+    });
+    
+    // Convert to array format for pie chart
+    const chartData = Object.keys(tickerValues).map(ticker => ({
+      name: ticker,
+      value: convertCurrency(tickerValues[ticker]),
+      percentage: (tickerValues[ticker] / totalValue) * 100
+    }));
+    
+    // Sort by value (descending)
+    chartData.sort((a, b) => b.value - a.value);
+    
+    setPieChartData(chartData);
   };
 
-  // Custom pie chart label
+  // Convert stocks for display with the selected currency
+  const convertStocksForDisplay = () => {
+    if (!portfolio.stocks || portfolio.stocks.length === 0) {
+      setConvertedStocks([]);
+      return;
+    }
+    
+    const converted = portfolio.stocks.map(stock => ({
+      ...stock,
+      buy_price: convertCurrency(stock.buy_price),
+      current_price: convertCurrency(stock.current_price),
+      current_value: convertCurrency(stock.current_price * stock.quantity),
+      profit_loss: convertCurrency((stock.current_price - stock.buy_price) * stock.quantity),
+      profit_loss_percent: stock.buy_price > 0 
+        ? ((stock.current_price - stock.buy_price) / stock.buy_price) * 100 
+        : 0
+    }));
+    
+    setConvertedStocks(converted);
+  };
+
+  // Custom label for pie chart
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-    // ... existing code ...
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    
+    if (percent < 0.05) return null; // Don't show labels for small slices
+    
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="white" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central"
+        fontSize={12}
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
   };
 
   // Custom tooltip for pie chart
   const CustomTooltip = ({ active, payload }) => {
-    // ... existing code ...
-  };
-
-  // Handle currency change
-  const handleCurrencyChange = (event) => {
-    if (onCurrencyChange) {
-      onCurrencyChange(event.target.value);
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <Paper sx={{ p: 1, boxShadow: 2 }}>
+          <Typography variant="subtitle2">{data.name}</Typography>
+          <Typography variant="body2">{formatCurrency(data.value)}</Typography>
+          <Typography variant="body2">
+            {data.percentage.toFixed(2)}% of portfolio
+          </Typography>
+        </Paper>
+      );
     }
+    return null;
   };
 
-  // Convert stocks to selected currency for display
-  const convertedStocks = portfolio.stocks ? portfolio.stocks.map(stock => ({
-    ...stock,
-    buy_price: convertCurrency(stock.buy_price),
-    current_price: convertCurrency(stock.current_price),
-    current_value: convertCurrency(stock.current_price * stock.quantity),
-    profit_loss: convertCurrency((stock.current_price - stock.buy_price) * stock.quantity)
-  })) : [];
-
-  // Handle stock edit
-  const handleEditStock = async (updatedStock) => {
-    try {
-      await updateStock(updatedStock.id, updatedStock);
-      // Refresh portfolio data
-      setRefreshTrigger(prev => prev + 1);
-      return true; // Indicate success
-    } catch (error) {
-      console.error('Error updating stock:', error);
-      alert('Failed to update stock. Please try again.');
-      throw error; // Propagate error
-    }
-  };
-
-  // Handle stock delete
-  const handleDeleteStock = async (stockId) => {
-    try {
-      await deleteStock(stockId);
-      // Refresh portfolio data
-      setRefreshTrigger(prev => prev + 1);
-      return true; // Indicate success
-    } catch (error) {
-      console.error('Error deleting stock:', error);
-      alert('Failed to delete stock. Please try again.');
-      throw error; // Propagate error
-    }
-  };
-
-  // Handle stock add
+  // Handle stock operations
   const handleAddStock = async (newStock) => {
     try {
       await addStock(newStock);
-      // Refresh portfolio data
-      setRefreshTrigger(prev => prev + 1);
-      return true; // Indicate success
+      onRefresh(); // Trigger refresh
+      return true;
     } catch (error) {
       console.error('Error adding stock:', error);
-      alert('Failed to add stock. Please try again.');
-      throw error; // Propagate error
+      return false;
     }
   };
 
-  if (isLoading) {
+  const handleEditStock = async (updatedStock) => {
+    try {
+      await updateStock(updatedStock.id, updatedStock);
+      onRefresh(); // Trigger refresh
+      return true;
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      return false;
+    }
+  };
+
+  const handleDeleteStock = async (stockId) => {
+    try {
+      await deleteStock(stockId);
+      onRefresh(); // Trigger refresh
+      return true;
+    } catch (error) {
+      console.error('Error deleting stock:', error);
+      return false;
+    }
+  };
+
+  if (loading && !portfolioData) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
         <CircularProgress />
@@ -278,11 +291,12 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
     <Box>
       <Typography variant="h4" gutterBottom>Portfolio Dashboard</Typography>
       
-      <Grid container spacing={2}>
+      <Grid container spacing={3}>
         <Grid item xs={12} md={5}>
-          <Paper sx={{ p: 2, height: '100%' }}>
-            <Typography variant="h6" gutterBottom>Portfolio Allocation</Typography>
-            <ResponsiveContainer width="100%" height={220}>
+          <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" gutterBottom>Asset Allocation</Typography>
+            
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
                   data={pieChartData}
@@ -402,7 +416,7 @@ const Dashboard = ({ currency, onCurrencyChange }) => {
           onDelete={handleDeleteStock}
           onAdd={handleAddStock}
           currency={currency}
-          onCurrencyChange={handleCurrencyChange}
+          onCurrencyChange={onCurrencyChange}
           fixedOrderTickers={FIXED_ORDER_TICKERS}
         />
       </Box>

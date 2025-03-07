@@ -14,7 +14,7 @@ import {
   InputAdornment
 } from '@mui/material';
 
-const StockForm = ({ open, handleClose, handleSubmit, initialValues }) => {
+const StockForm = ({ open, handleClose, handleSubmit, initialValues = {} }) => {
   const [formData, setFormData] = useState({
     id: '',
     ticker: '',
@@ -36,7 +36,7 @@ const StockForm = ({ open, handleClose, handleSubmit, initialValues }) => {
         currency: initialValues.currency || 'USD'
       });
     }
-  }, [initialValues]);
+  }, [initialValues, open]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -54,7 +54,7 @@ const StockForm = ({ open, handleClose, handleSubmit, initialValues }) => {
 
   return (
     <Dialog open={open} onClose={handleClose}>
-      <DialogTitle>{initialValues.id ? 'Edit Stock' : 'Add Stock'}</DialogTitle>
+      <DialogTitle>{formData.id ? 'Edit Stock' : 'Add Stock'}</DialogTitle>
       <DialogContent>
         <Box component="form" onSubmit={handleFormSubmit} sx={{ mt: 1 }}>
           <TextField
@@ -66,7 +66,7 @@ const StockForm = ({ open, handleClose, handleSubmit, initialValues }) => {
             value={formData.ticker}
             onChange={handleChange}
             autoFocus
-            disabled={!!initialValues.id} // Disable ticker editing for existing stocks
+            disabled={!!formData.id} // Disable ticker editing for existing stocks
           />
           
           <TextField

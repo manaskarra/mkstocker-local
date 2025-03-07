@@ -57,6 +57,9 @@ const StockList = ({
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
+  
+  // Add state for refreshing data
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Format currency for display
   const formatCurrency = (value) => {
@@ -138,7 +141,7 @@ const StockList = ({
     
     console.log("Sorted ticker summaries:", summaries.map(s => s.ticker));
     setTickerSummaries(summaries);
-  }, [stocks, fixedOrderTickers]);
+  }, [stocks, fixedOrderTickers, refreshTrigger]);
 
   // Password verification function
   const verifyPassword = async () => {
@@ -163,6 +166,8 @@ const StockList = ({
             case 'delete':
               if (onDelete) {
                 await onDelete(payload);
+                // Trigger refresh after deletion
+                setRefreshTrigger(prev => prev + 1);
               }
               break;
             default:
@@ -218,6 +223,8 @@ const StockList = ({
     try {
       if (onEdit) {
         await onEdit(updatedStock);
+        // Trigger refresh after edit
+        setRefreshTrigger(prev => prev + 1);
       }
       setEditDialogOpen(false);
       setCurrentStock(null);
@@ -243,6 +250,8 @@ const StockList = ({
     try {
       if (onAdd) {
         await onAdd(newStock);
+        // Trigger refresh after add
+        setRefreshTrigger(prev => prev + 1);
       }
       setAddDialogOpen(false);
       setCurrentTicker(null);

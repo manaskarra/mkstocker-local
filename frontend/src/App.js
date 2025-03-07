@@ -1,144 +1,106 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box, Typography } from '@mui/material';
-import Header from './components/Header';
+import { Container } from '@mui/material';
 import Dashboard from './pages/Dashboard';
+import Layout from './components/Layout';
 import { fetchStocks } from './services/api';
 
-// Your routes and other middleware...
-// Create a more aesthetically pleasing theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#3f51b5', // Indigo
-      light: '#757de8',
-      dark: '#002984',
-    },
-    secondary: {
-      main: '#f50057', // Pink
-      light: '#ff5983',
-      dark: '#bb002f',
-    },
-    background: {
-      default: '#f5f5f5', // Light gray background
-      paper: '#ffffff',
-    },
-    success: {
-      main: '#4caf50', // Green
-      light: '#80e27e',
-      dark: '#087f23',
-    },
-    error: {
-      main: '#f44336', // Red
-      light: '#ff7961',
-      dark: '#ba000d',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 600,
-      letterSpacing: '0.02em',
-    },
-    h6: {
-      fontWeight: 500,
-      letterSpacing: '0.01em',
-    },
-    subtitle1: {
-      fontWeight: 500,
-      color: '#616161',
-    },
-  },
-  shape: {
-    borderRadius: 8,
-  },
-  components: {
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0px 3px 15px rgba(0,0,0,0.05)',
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          fontWeight: 500,
-        },
-      },
-    },
-    MuiTableCell: {
-      styleOverrides: {
-        head: {
-          fontWeight: 600,
-          backgroundColor: '#f5f5f5',
-        },
-      },
-    },
-  },
-});
-
-// Wrapper component to handle navigation
-const AppContent = () => {
+function App() {
+  const [darkMode, setDarkMode] = useState(false);
   const [currency, setCurrency] = useState('USD');
+  const [portfolioData, setPortfolioData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const location = useLocation();
+  const [lastUpdateTime, setLastUpdateTime] = useState(null);
 
-  // Force re-render when location changes
-  useEffect(() => {
-    console.log('Route changed to:', location.pathname);
-  }, [location]);
+  const theme = createTheme({
+    palette: {
+      mode: darkMode ? 'dark' : 'light',
+      primary: {
+        main: '#1976d2',
+      },
+      secondary: {
+        main: '#dc004e',
+      },
+    },
+  });
 
-  const handleRefresh = () => {
-    // Increment the refresh trigger to cause a re-render
-    setRefreshTrigger(prev => prev + 1);
+  // Handle theme toggle
+  const handleThemeToggle = () => {
+    setDarkMode(!darkMode);
   };
 
+  // Handle currency change
   const handleCurrencyChange = (newCurrency) => {
+    console.log('Currency changed to:', newCurrency);
     setCurrency(newCurrency);
   };
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Header 
-        onRefresh={handleRefresh}
-      />
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 1, sm: 2, md: 3 } }}>
-        <Routes>
-          <Route 
-            path="/" 
-            element={
-              <Dashboard 
-                key={`dashboard-${refreshTrigger}`} // Force re-render on refresh
-                currency={currency} 
-                onCurrencyChange={handleCurrencyChange} 
-              />
-            } 
-          />
-          {/* Redirect dashboard route to root */}
-          <Route path="/dashboard" element={<Navigate to="/" replace />} />
-          {/* Redirect any other routes to root */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Box>
-      <Box component="footer" sx={{ py: 2, textAlign: 'center', bgcolor: 'background.paper', mt: 'auto', borderTop: '1px solid #e0e0e0' }}>
-        <Typography variant="body2" color="text.secondary">
-          © {new Date().getFullYear()} Manas Karra
-        </Typography>
-      </Box>
-    </Box>
-  );
-};
+  // Fetch portfolio data
+  const fetchPortfolioData = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchStocks();
+      console.log('Fetched portfolio data:', data);
+      setPortfolioData(data);
+      setLastUpdateTime(new Date().toISOString());
+    } catch (error) {
+      console.error('Error fetching portfolio data:', error);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
 
-function App() {
+  // Handle refresh
+  const handleRefresh = () => {
+    console.log('Refresh triggered');
+    setIsRefreshing(true);
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchPortfolioData();
+  }, []);
+
+  // Refresh data when triggered
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      fetchPortfolioData();
+    }
+  }, [refreshTrigger]);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <AppContent />
+        <Layout darkMode={darkMode} onThemeToggle={handleThemeToggle}>
+          <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+            <Routes>
+              <Route 
+                path="/" 
+                element={
+                  <Dashboard 
+                    key={`dashboard-${refreshTrigger}`} // Force re-render on refresh
+                    currency={currency} 
+                    onCurrencyChange={handleCurrencyChange}
+                    portfolioData={portfolioData}
+                    loading={loading}
+                    onRefresh={handleRefresh}
+                    isRefreshing={isRefreshing}
+                    lastUpdateTime={lastUpdateTime}
+                  />
+                } 
+              />
+              {/* Redirect /dashboard to root for backward compatibility */}
+              <Route path="/dashboard" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Container>
+        </Layout>
       </Router>
     </ThemeProvider>
   );
