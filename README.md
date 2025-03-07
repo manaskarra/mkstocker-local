@@ -4,7 +4,7 @@ A personal project born out of necessity. As someone who invests across various 
 
 Commercial apps often cause unusual delays, lack multi-currency support or charge premium fees for even the most basic features. MKStocker gives me complete control over my financial data while providing the real-time insights I need to make informed investment decisions. 
 
-Built with React and Flask, this project reflects my growing interest in finance and trading. As a new investor, I’m eager to explore the intersection of technology and finance.”
+Built with React and Flask, this project reflects my growing interest in finance and trading. As a new investor, I’m eager to explore the intersection of technology and finance.
 
 ## Features
 
@@ -16,7 +16,7 @@ Built with React and Flask, this project reflects my growing interest in finance
 
 ## Technology Stack
 
-- **Frontend**: React, Material-UI
+- **Frontend**: React
 - **Backend**: Flask (Python)
 - **Data Visualization**: Recharts
 - **API Integration**: Yahoo Finance API
