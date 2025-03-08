@@ -1,10 +1,10 @@
 # MKStocker - Personal Stock Portfolio Tracker
 
-A personal project born out of necessity. As someone who invests across various asset classes (stocks, ETFs, cryptocurrencies, etc.), I needed a unified dashboard to track my entire portfolio in one place.
+A personal project born out of necessity. As someone who invests across stocks, ETFs, cryptocurrencies, and more, I needed a unified real-time dashboard to track my entire portfolio without restrictions or hidden fees.
 
-Commercial apps often cause unusual delays, lack multi-currency support or charge premium fees for even the most basic features. MKStocker gives me complete control over my financial data while providing the real-time insights I need to make informed investment decisions. 
+MKStocker is built to provide full control over financial data, supporting multi-currency tracking, real-time insights, and a fully customizable experience tailored to individual investment strategies. Whether it’s monitoring performance, analyzing trends, or optimizing holdings, MKStocker makes it seamless and intuitive.
 
-Built with React and Flask, this project reflects my growing interest in finance and trading. As a new investor, I’m eager to explore the intersection of technology and finance.
+Developed with React and Flask, this project reflects my growing passion for finance and technology. Looking ahead, I’m excited to explore advanced analytics, risk assessment, and AI-powered insights to make investing more efficient and data-driven.
 
 ## Features
 
